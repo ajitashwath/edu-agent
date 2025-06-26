@@ -1,57 +1,54 @@
 from crewai import Agent
-from crewai_tools import SerperDevTool, FileReadTool
-import yaml
+from langchain.llms import OpenAI
 
-import os
-os.environ["GEMINI_API_KEY"] = "AIzaSyCmbWVAmQQnIXptRCHJPYNu3-PK1h25ELE"
-
-
-class JEEAgents:
+class EducationAgents:
     def __init__(self):
-        self.config_path = os.path.join(os.path.dirname(__file__), '..', '..', 'config', 'agents.yaml')
-        self.agents_config = self._load_config()
+        self.llm = OpenAI(temperature = 0.7)
     
-    def _load_config(self):
-        with open(self.config_path, 'r') as file:
-            return yaml.safe_load(file)
-    
-    def study_analyst(self):
+    def academic_analyzer_agent(self):
         return Agent(
-            role = self.agents_config['study_analyst']['role'],
-            goal = self.agents_config['study_analyst']['goal'],
-            verbose = True,
-            #memory = True,
-            backstory = self.agents_config['study_analyst']['backstory'],
-            tools = [],
-            allow_delegation = False,
-            max_iter = 3,
-            max_execution_time = 300
+            role='Academic Performance Analyzer',
+            goal='Analyze student academic performance and provide insights',
+            backstory="""You are an experienced academic counselor with 15+ years of experience 
+            in analyzing student performance patterns. You specialize in understanding how different 
+            academic backgrounds translate to JEE preparation requirements.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
         )
     
-    def roadmap_planner(self):
+    def study_planner_agent(self):
         return Agent(
-            role = self.agents_config['roadmap_planner']['role'],
-            goal = self.agents_config['roadmap_planner']['goal'],
-            verbose = True,
-            #memory=True,
-            backstory = self.agents_config['roadmap_planner']['backstory'],
-            tools = [],
-            allow_delegation = False,
-            max_iter = 3,
-            max_execution_time = 300
+            role='IIT-JEE Study Strategist',
+            goal='Create comprehensive and personalized study roadmaps for IIT-JEE preparation',
+            backstory="""You are a top-tier JEE coaching expert who has helped thousands of students 
+            crack IIT-JEE. You understand the nuances of different preparation strategies based on 
+            student profiles and can create timeline-based study plans.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
         )
     
-    def resource_recommender(self):
+    def resource_curator_agent(self):
         return Agent(
-            role = self.agents_config['resource_recommender']['role'],
-            goal = self.agents_config['resource_recommender']['goal'],
-            verbose = True,
-            #memory=True,
-            backstory = self.agents_config['resource_recommender']['backstory'],
-            tools = [], 
-            allow_delegation = False,
-            max_iter = 3,
-            max_execution_time = 300
+            role='Educational Resource Curator',
+            goal='Recommend best study materials and resources for JEE preparation',
+            backstory="""You are a JEE preparation specialist who has extensive knowledge of all 
+            available study materials, online platforms, coaching institutes, and books. You can 
+            recommend the most effective resources based on student needs.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
         )
-
-        
+    
+    def timeline_optimizer_agent(self):
+        return Agent(
+            role='Timeline and Schedule Optimizer',
+            goal='Create realistic and achievable study schedules',
+            backstory="""You are a time management expert who specializes in creating balanced 
+            study schedules for competitive exam preparation. You understand how to optimize 
+            study time while maintaining student well-being.""",
+            verbose=True,
+            allow_delegation=False,
+            llm=self.llm
+        )

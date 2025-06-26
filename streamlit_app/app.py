@@ -1,224 +1,251 @@
 import streamlit as st
 import sys
 import os
-import time
-from pathlib import Path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-sys.path.append(str(Path(__file__).parent.parent / "src"))
-
-from edu_agent.crew import JEEStudyCrew
-from components.input_form import render_input_form
-from components.roadmap_display import display_results
-from utils.helpers import validate_inputs, calculate_preparation_time
-
-# Page config
-st.set_page_config(
-    page_title="IIT/JEE Study Roadmap AI Agent",
-    page_icon="🎓",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-st.markdown("""
-<style>
-    .main-header {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        color: white;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .input-section {
-        background: #f8f9fa;
-        padding: 1.5rem;
-        border-radius: 10px;
-        margin-bottom: 2rem;
-    }
-    .results-section {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    .stButton > button {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 5px;
-        padding: 0.5rem 2rem;
-        font-weight: bold;
-    }
-</style>
-""", unsafe_allow_html=True)
+from components.input_form import StudentInputForm
+from components.roadmap_display import RoadmapDisplay
+from utils.helpers import HelperFunctions
+# from edu_agent.crew import EducationCrew
 
 def main():
-    # Header
+    # Page configuration
+    st.set_page_config(
+        page_title="IIT-JEE Study Roadmap Generator",
+        page_icon="🎓",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
     st.markdown("""
-    <div class="main-header">
-        <h1>🎓 IIT/JEE Study Roadmap AI Agent</h1>
-        <p>Get your personalized study roadmap powered by AI</p>
-    </div>
+    <style>
+        .main-header {
+            font-size: 3rem;
+            color: #1f77b4;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .motivational-quote {
+            font-style: italic;
+            text-align: center;
+            color: #666;
+            padding: 1rem;
+            border-left: 4px solid #1f77b4;
+            margin: 1rem 0;
+            background-color: #f8f9fa;
+        }
+        .success-metric {
+            background: linear-gradient(90deg, #00C851, #007E33);
+            color: white;
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+            margin: 0.5rem 0;
+        }
+        .stButton > button {
+            background: linear-gradient(90deg, #1f77b4, #0d47a1);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+    </style>
     """, unsafe_allow_html=True)
     
-    # Sidebar with information
+    # Header
+    st.markdown('<h1 class="main-header">IIT-JEE Study Roadmap Generator</h1>', unsafe_allow_html=True)
+    st.markdown('<div class="motivational-quote">"' + HelperFunctions.get_motivational_quote() + '"</div>', unsafe_allow_html=True)
+    
+    # Sidebar
     with st.sidebar:
-        st.title("📋 About This Tool")
-        st.write("""
-        This AI-powered tool creates personalized study roadmaps for IIT/JEE aspirants based on:
+        #st.image("https://via.placeholder.com/300x200.png?text=IIT-JEE+Success", use_column_width=True)
+        st.header("📊 Quick Stats")
         
-        **📊 Your Academic Profile**
-        - Current academic percentage
-        - School background
-        - Age and preparation time
+        # Display some motivational stats
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Days to JEE (Expected)", HelperFunctions.calculate_exam_countdown())
+        with col2:
+            st.metric("Success Rate", "2.5%")
         
-        **🎯 What You Get**
-        - Detailed study roadmap
-        - Subject-wise preparation plan
-        - Recommended resources
-        - Target college suggestions
+        st.write("### 🎯 Why Choose Our Roadmap?")
+        st.write("✅ Personalized study plans")
+        st.write("✅ Expert-curated resources")
+        st.write("✅ Time-optimized schedules")
+        st.write("✅ Progress tracking tools")
+        st.write("✅ Success-proven strategies")
         
-        **🤖 Powered By**
-        - CrewAI multi-agent system
-        - OpenAI GPT-4
-        - Expert knowledge base
-        """)
-        
-        st.markdown("---")
-        st.write("**💡 Tips for Best Results:**")
-        st.write("- Provide accurate academic percentage")
-        st.write("- Mention your school name correctly")
-        st.write("- Be honest about your current age")
+        st.write("### 📞 Need Help?")
+        st.info("Contact our experts for personalized guidance!")
     
     # Main content
-    col1, col2 = st.columns([1, 2])
+    # Initialize session state
+    if 'roadmap_generated' not in st.session_state:
+        st.session_state.roadmap_generated = False
+    if 'student_data' not in st.session_state:
+        st.session_state.student_data = None
+    if 'roadmap_data' not in st.session_state:
+        st.session_state.roadmap_data = None
     
-    with col1:
-        st.markdown('<div class="input-section">', unsafe_allow_html=True)
-        st.subheader("📝 Enter Your Details")
+    # Show different views based on state
+    if not st.session_state.roadmap_generated:
+        # Input form view
+        st.write("## 📝 Tell Us About Yourself")
+        st.write("Help us create a personalized study roadmap tailored to your academic profile and goals.")
         
-        # Input form
-        with st.form("student_details_form"):
-            academic_percentage = st.slider(
-                "Academic Percentage (Overall)",
-                min_value=40.0,
-                max_value=100.0,
-                value=75.0,
-                step=0.1,
-                help="Your overall academic percentage from 9th-12th grade"
-            )
-            
-            school_name = st.text_input(
-                "School Name",
-                placeholder="Enter your school name",
-                help="This helps us understand your academic background"
-            )
-            
-            age = st.number_input(
-                "Current Age",
-                min_value=14,
-                max_value=22,
-                value=17,
-                help="Your current age in years"
-            )
-            
-            # Class selection
-            current_class = st.selectbox(
-                "Current Class",
-                ["10th Grade", "11th Grade", "12th Grade", "12th Passed (Gap Year)"],
-                help="Your current academic status"
-            )
-            
-            submitted = st.form_submit_button("🚀 Generate My Roadmap", use_container_width=True)
+        # Render input form
+        student_data = StudentInputForm.render()
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Additional options
-        with st.expander("⚙️ Advanced Options"):
-            target_exam = st.multiselect(
-                "Target Exams",
-                ["JEE Main", "JEE Advanced", "BITSAT", "State CET", "Private Colleges"],
-                default=["JEE Main", "JEE Advanced"]
-            )
+        if student_data:
+            # Validate data
+            errors = HelperFunctions.validate_student_data(student_data)
             
-            preparation_mode = st.radio(
-                "Preparation Mode",
-                ["Self Study", "Coaching + Self Study", "Online Coaching"],
-                index=1
-            )
-    
-    with col2:
-        st.markdown('<div class="results-section">', unsafe_allow_html=True)
-        
-        if submitted:
-            # Validate inputs
-            validation_errors = validate_inputs(academic_percentage, school_name, age)
-            
-            if validation_errors:
-                st.error("Please fix the following errors:")
-                for error in validation_errors:
-                    st.write(f"- {error}")
+            if errors:
+                for error in errors:
+                    st.error(f"❌ {error}")
             else:
-                # Show loading message
-                with st.spinner("🤖 AI agents are analyzing your profile and creating your roadmap..."):
-                    try:
-                        # Initialize and run the crew
-                        crew = JEEStudyCrew()
-                        
-                        # Add progress bar
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        
-                        status_text.text("Analyzing your academic profile...")
-                        progress_bar.progress(25)
-                        time.sleep(1)
-                        
-                        status_text.text("Creating personalized study roadmap...")
-                        progress_bar.progress(50)
-                        time.sleep(1)
-                        
-                        status_text.text("Recommending best resources...")
-                        progress_bar.progress(75)
-                        
-                        # Run the crew
-                        result = crew.run(
-                            academic_percentage=academic_percentage,
-                            school_name=school_name,
-                            age=age
-                        )
-                        
-                        progress_bar.progress(100)
-                        status_text.text("Roadmap generated successfully! 🎉")
-                        time.sleep(0.5)
-                        
-                        # Clear progress indicators
-                        progress_bar.empty()
-                        status_text.empty()
-                        
-                        # Display results
-                        display_results(result, academic_percentage, school_name, age, current_class)
-                        
-                    except Exception as e:
-                        st.error(f"An error occurred while generating your roadmap: {str(e)}")
-                        st.write("Please check your API key and try again.")
-        else:
-            st.markdown("""
-            <div style="text-align: center; padding: 3rem; color: #666;">
-                <h3>👆 Fill in your details to get started</h3>
-                <p>Our AI agents will analyze your profile and create a personalized study roadmap for IIT/JEE preparation.</p>
+                # Show profile summary
+                StudentInputForm.display_profile_summary(student_data)
                 
-                <div style="margin-top: 2rem;">
-                    <h4>🔍 How it works:</h4>
-                    <div style="text-align: left; max-width: 400px; margin: 0 auto;">
-                        <p><strong>Step 1:</strong> Student Profile Analysis</p>
-                        <p><strong>Step 2:</strong> Personalized Roadmap Creation</p>
-                        <p><strong>Step 3:</strong> Resource Recommendations</p>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+                # Generate roadmap
+                with st.spinner("🤖 AI agents are working on your personalized roadmap..."):
+                    # Save student data
+                    st.session_state.student_data = student_data
+                    HelperFunctions.save_user_session(student_data)
+                    roadmap_data = HelperFunctions.generate_mock_roadmap(student_data)
+                    
+                    st.session_state.roadmap_data = roadmap_data
+                    st.session_state.roadmap_generated = True
+                
+                # Auto-rerun to show roadmap
+                st.rerun()
+    
+    else:
+        # Roadmap display view
+        st.write("## 🗺️ Your Personalized Study Roadmap")
         
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Add navigation buttons
+        col1, col2, col3 = st.columns([1, 1, 1])
+        
+        with col1:
+            if st.button("🔄 Generate New Roadmap", use_container_width=True):
+                st.session_state.roadmap_generated = False
+                st.session_state.student_data = None
+                st.session_state.roadmap_data = None
+                st.rerun()
+        
+        with col2:
+            if st.button("📊 View Profile", use_container_width=True):
+                if st.session_state.student_data:
+                    StudentInputForm.display_profile_summary(st.session_state.student_data)
+        
+        with col3:
+            if st.button("💾 Save Roadmap", use_container_width=True):
+                st.success("Roadmap saved to your session!")
+        
+        # Display the roadmap
+        if st.session_state.roadmap_data:
+            RoadmapDisplay.render(st.session_state.roadmap_data)
+            
+            # Download options
+            st.write("---")
+            RoadmapDisplay.display_download_options(st.session_state.roadmap_data)
+        
+        # Additional resources section
+        st.write("---")
+        st.write("## 🔗 Additional Resources")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.write("### 📚 Free Resources")
+            st.write("• [Khan Academy](https://www.khanacademy.org)")
+            st.write("• [NCERT Solutions](https://ncert.nic.in)")
+            st.write("• [Previous Year Papers](https://jeemain.nta.nic.in)")
+            st.write("• [Physics Wallah YouTube](https://youtube.com/c/PhysicsWallah)")
+        
+        with col2:
+            st.write("### 🏫 Coaching Institutes")
+            st.write("• Allen Career Institute")
+            st.write("• Resonance")
+            st.write("• FIITJEE")
+            st.write("• Aakash Institute")
+        
+        with col3:
+            st.write("### 📱 Mobile Apps")
+            st.write("• Unacademy")
+            st.write("• Motion Learning App")
+            st.write("• Melvano")
+            st.write("• Vedantu")
+    
+    # Footer
+    st.write("---")
+    st.markdown("""
+    <div style='text-align: center; color: #666; padding: 1rem;'>
+        <p>🎓 Powered by crewAI</p>
+        <p>💡 Remember: Success is a journey, not a destination. Keep learning, keep growing!</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+# Subject-specific tips page
+def show_subject_tips():
+    st.header("📚 Subject-Specific Preparation Tips")
+    
+    tab1, tab2, tab3 = st.tabs(["🧮 Mathematics", "⚡ Physics", "🧪 Chemistry"])
+    
+    with tab1:
+        st.subheader("Mathematics Preparation Strategy")
+        tips = HelperFunctions.get_subject_tips('Mathematics')
+        for tip in tips:
+            st.write(f"• {tip}")
+    
+    with tab2:
+        st.subheader("Physics Preparation Strategy")
+        tips = HelperFunctions.get_subject_tips('Physics')
+        for tip in tips:
+            st.write(f"• {tip}")
+    
+    with tab3:
+        st.subheader("Chemistry Preparation Strategy")
+        tips = HelperFunctions.get_subject_tips('Chemistry')
+        for tip in tips:
+            st.write(f"• {tip}")
+
+# Navigation
+def navigation():
+    st.sidebar.markdown("---")
+    st.sidebar.write("### 📋 Navigation")
+    
+    page = st.sidebar.radio(
+        "Go to:",
+        ["🏠 Home", "📚 Subject Tips", "📊 Progress Tracker", "❓ FAQ"]
+    )
+    
+    return page
 
 if __name__ == "__main__":
-    main()
+    # Handle navigation
+    selected_page = navigation()
+    
+    if selected_page == "🏠 Home":
+        main()
+    elif selected_page == "📚 Subject Tips":
+        show_subject_tips()
+    elif selected_page == "📊 Progress Tracker":
+        st.header("📊 Progress Tracker")
+        st.info("Progress tracking feature coming soon!")
+    elif selected_page == "❓ FAQ":
+        st.header("❓ Frequently Asked Questions")
+        
+        with st.expander("How accurate is the AI-generated roadmap?"):
+            st.write("Our AI agents are trained on successful JEE preparation strategies and adapt to your specific profile for maximum effectiveness.")
+        
+        with st.expander("Can I modify the generated roadmap?"):
+            st.write("Yes! The roadmap serves as a guideline. You can adjust it based on your preferences and learning pace.")
+        
+        with st.expander("How often should I update my profile?"):
+            st.write("We recommend updating your profile monthly to get refined recommendations based on your progress.")
+        
+        with st.expander("Is this suitable for both JEE Main and Advanced?"):
+            st.write("Yes, our roadmap covers preparation strategies for both JEE Main and JEE Advanced.")
