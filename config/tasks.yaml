@@ -1,0 +1,44 @@
+analyze_student_profile:
+  description: >
+    Analyze the student's academic profile including:
+    - Academic percentage: {academic_percentage}%
+    - School name: {school_name}
+    - Current age: {age} years
+    
+    Provide insights on:
+    1. Current academic standing assessment
+    2. Preparation time available based on age
+    3. School background analysis (if recognizable)
+    4. Strengths and potential challenges
+    5. Realistic IIT/NIT target recommendations
+  expected_output: >
+    A comprehensive student profile analysis with current standing assessment,
+    preparation time calculation, and realistic target college recommendations.
+
+create_study_roadmap:
+  description: >
+    Based on the student profile analysis, create a detailed study roadmap that includes:
+    1. Phase-wise preparation plan (Foundation, Intensive, Revision, Mock Tests)
+    2. Subject-wise study schedule (Physics, Chemistry, Mathematics)
+    3. Monthly milestones and targets
+    4. Time allocation recommendations
+    5. Difficulty progression strategy
+    
+    Consider the student's current level and available preparation time.
+  expected_output: >
+    A detailed, month-by-month study roadmap with specific targets, time allocations,
+    and milestone tracking for IIT/JEE preparation.
+
+recommend_resources:
+  description: >
+    Based on the student profile and study roadmap, recommend:
+    1. Best books for each subject (considering current level)
+    2. Online courses and video lectures
+    3. Mock test series and practice platforms
+    4. Previous year question papers strategy
+    5. Revision materials and quick reference guides
+    
+    Prioritize resources based on effectiveness and student's preparation level.
+  expected_output: >
+    A categorized list of recommended study resources with specific reasons
+    for selection and how to utilize them effectively in the study plan.
