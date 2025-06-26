@@ -1,64 +1,155 @@
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 from crewai.agents.agent_builder.base_agent import BaseAgent
-from typing import List
-# If you want to run a snippet of code before or after the crew starts,
-# you can use the @before_kickoff and @after_kickoff decorators
-# https://docs.crewai.com/concepts/crews#example-crew-class-with-decorators
+from typing import List, Dict, Any
+from datetime import datetime
+import yaml
+import os
+
+def load_yaml_config(path):
+    with open(path, 'r', encoding = 'utf-8') as f:
+        return yaml.safe_load(f)
+
+AGENTS_YAML = os.path.join(os.path.dirname(__file__), 'config', 'agents.yaml')
+TASKS_YAML = os.path.join(os.path.dirname(__file__), 'config', 'tasks.yaml')
 
 @CrewBase
 class EduAgent():
-    """EduAgent crew"""
 
     agents: List[BaseAgent]
     tasks: List[Task]
-
-    # Learn more about YAML configuration files here:
-    # Agents: https://docs.crewai.com/concepts/agents#yaml-configuration-recommended
-    # Tasks: https://docs.crewai.com/concepts/tasks#yaml-configuration-recommended
-    
-    # If you would like to add tools to your agents, you can learn more about it here:
-    # https://docs.crewai.com/concepts/agents#agent-tools
-    @agent
-    def researcher(self) -> Agent:
-        return Agent(
-            config=self.agents_config['researcher'], # type: ignore[index]
-            verbose=True
-        )
+    agents_config: Dict[str, Any] = load_yaml_config(AGENTS_YAML)
+    tasks_config: Dict[str, Any] = load_yaml_config(TASKS_YAML)
 
     @agent
-    def reporting_analyst(self) -> Agent:
+    def academic_analyzer(self) -> Agent:
+        cfg = self.agents_config['academic_analyzer']
         return Agent(
-            config=self.agents_config['reporting_analyst'], # type: ignore[index]
-            verbose=True
+            role=cfg['role'],
+            goal=cfg['goal'],
+            backstory=cfg['backstory'],
+            verbose=True,
+            max_execution_time=300,
+            allow_delegation=False
         )
 
-    # To learn more about structured task outputs,
-    # task dependencies, and task callbacks, check out the documentation:
-    # https://docs.crewai.com/concepts/tasks#overview-of-a-task
-    @task
-    def research_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['research_task'], # type: ignore[index]
+    @agent
+    def study_planner(self) -> Agent:
+        cfg = self.agents_config['study_planner']
+        return Agent(
+            role=cfg['role'],
+            goal=cfg['goal'],
+            backstory=cfg['backstory'],
+            verbose=True,
+            max_execution_time=300,
+            allow_delegation=False
+        )
+
+    @agent
+    def resource_advisor(self) -> Agent:
+        cfg = self.agents_config['resource_advisor']
+        return Agent(
+            role=cfg['role'],
+            goal=cfg['goal'],
+            backstory=cfg['backstory'],
+            verbose=True,
+            max_execution_time=300,
+            allow_delegation=False
         )
 
     @task
-    def reporting_task(self) -> Task:
+    def academic_analysis_task(self) -> Task:
+        cfg = self.tasks_config['academic_analysis_task']
         return Task(
-            config=self.tasks_config['reporting_task'], # type: ignore[index]
-            output_file='report.md'
+            description=cfg['description'],
+            expected_output=cfg['expected_output'],
+            agent=self.academic_analyzer()
+        )
+
+    @task
+    def study_planning_task(self) -> Task:
+        cfg = self.tasks_config['study_planning_task']
+        return Task(
+            description=cfg['description'],
+            expected_output=cfg['expected_output'],
+            agent=self.study_planner(),
+            context=[self.academic_analysis_task()]
+        )
+
+    @task
+    def resource_recommendation_task(self) -> Task:
+        cfg = self.tasks_config['resource_recommendation_task']
+        return Task(
+            description=cfg['description'],
+            expected_output=cfg['expected_output'],
+            agent=self.resource_advisor(),
+            context=[self.academic_analysis_task()]
+        )
+
+    @task
+    def final_roadmap_compilation(self) -> Task:
+        cfg = self.tasks_config['final_roadmap_compilation']
+        return Task(
+            description=cfg['description'],
+            expected_output=cfg['expected_output'],
+            agent=self.study_planner(),
+            context=[self.academic_analysis_task(), self.study_planning_task(), self.resource_recommendation_task()],
+            output_file='jee_roadmap.md'
         )
 
     @crew
     def crew(self) -> Crew:
-        """Creates the EduAgent crew"""
-        # To learn how to add knowledge sources to your crew, check out the documentation:
-        # https://docs.crewai.com/concepts/knowledge#what-is-knowledge
-
         return Crew(
-            agents=self.agents, # Automatically created by the @agent decorator
-            tasks=self.tasks, # Automatically created by the @task decorator
+            agents=self.agents,
+            tasks=self.tasks,
             process=Process.sequential,
             verbose=True,
-            # process=Process.hierarchical, # In case you wanna use that instead https://docs.crewai.com/how-to/Hierarchical/
+            memory=True,
+            embedder={
+                "provider": "openai",
+                "config": {
+                    "model": "text-embedding-3-small"
+                }
+            }
         )
+
+    def generate_roadmap(self, academic_percentage: float, school_name: str, age: int) -> str:
+        inputs = {
+            'academic_percentage': academic_percentage,
+            'school_name': school_name,
+            'age': age,
+            'current_year': datetime.now().year
+        }
+        
+        try:
+            result = self.crew().kickoff(inputs = inputs)
+            return result.raw if hasattr(result, 'raw') else str(result)
+        except Exception as e:
+            raise Exception(f"An error occurred while generating the roadmap: {e}")
+
+    def validate_inputs(self, academic_percentage: float, school_name: str, age: int) -> Dict[str, Any]:
+        validation_results = {
+            'is_valid': True,
+            'errors': [],
+            'warnings': []
+        }
+        
+        if not (0 <= academic_percentage <= 100):
+            validation_results['is_valid'] = False
+            validation_results['errors'].append("Academic percentage must be between 0 and 100")
+        elif academic_percentage < 60:
+            validation_results['warnings'].append("Low academic percentage may require intensive preparation")
+
+        if not school_name or len(school_name.strip()) < 2:
+            validation_results['is_valid'] = False
+            validation_results['errors'].append("School name must be provided and meaningful")
+        
+        if not (13 <= age <= 20):
+            validation_results['is_valid'] = False
+            validation_results['errors'].append("Age must be between 13 and 20 for JEE preparation")
+        elif age < 15:
+            validation_results['warnings'].append("Early preparation - ensure strong foundation building")
+        elif age > 18:
+            validation_results['warnings'].append("Limited time - intensive preparation required")
+        
+        return validation_results
