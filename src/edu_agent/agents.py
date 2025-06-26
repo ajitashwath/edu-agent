@@ -1,7 +1,10 @@
 from crewai import Agent
 from crewai_tools import SerperDevTool, FileReadTool
 import yaml
+
 import os
+os.environ["GEMINI_API_KEY"] = "AIzaSyCmbWVAmQQnIXptRCHJPYNu3-PK1h25ELE"
+
 
 class JEEAgents:
     def __init__(self):
@@ -50,3 +53,5 @@ class JEEAgents:
             max_iter = 3,
             max_execution_time = 300
         )
+
+        
